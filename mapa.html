@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapa de Copacabana</title>
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    
+    <!-- Estilos personalizados -->
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+        }
+
+        .navbar-brand img {
+            height: 80px;
+        }
+
+        .navbar {
+            padding: 10px 20px;
+        }
+
+        .navbar-nav {
+            text-align: center;
+        }
+
+        #map {
+            width: 100%;
+            height: 500px;
+            margin-top: 20px;
+            border-radius: 10px;
+            border: 1px solid #ddd;
+        }
+
+        @media (max-width: 768px) {
+            .navbar-brand img {
+                height: 60px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navbar -->
+    <div id="header"></div>
+
+
+    <!-- Contenedor del mapa -->
+    <div class="container mt-4">
+        <h2 class="text-center">Mapa de Copacabana</h2>
+        <div id="map"></div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+    <script>
+        // Inicializar el mapa centrado en Copacabana
+        var map = L.map("map").setView([6.350, -75.500], 14);
+    
+        // Agregar capa base de OpenStreetMap
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+            attribution: "© OpenStreetMap contributors"
+        }).addTo(map);
+    
+        // Grupos de capas para barrios y veredas
+        var barriosLayer = L.featureGroup().addTo(map);
+        var veredasLayer = L.featureGroup().addTo(map);
+    
+        // Estilos de los polígonos
+        function estiloBarrios() { return { color: "blue", weight: 2, fillOpacity: 0.4 }; }
+        function estiloVeredas() { return { color: "green", weight: 2, fillOpacity: 0.4 }; }
+    
+        // Función para manejar eventos en cada polígono de BARRIOS
+        function eventosBarrios(feature, layer) {
+            var props = feature.properties || {}; 
+    
+            var popupContent = `
+                <b>Nombre:</b> ${props.nombre || "Sin nombre"}<br>
+                <b>Población:</b> ${props.poblacion || "Desconocida"}<br>
+                <b>Área:</b> ${props.area || "N/A"} m²<br>
+                <b>Proyectos:</b> ${props.proyectos || "N/A"}<br>
+                <b>Personas Impactadas:</b> ${props.personasImpactadas || "N/A"}<br>
+                <a href="${props.enlace || '#'}" target="_blank" style="color: blue; text-decoration: underline;">Conoce más</a>
+            `;
+    
+            layer.bindPopup(popupContent);
+            agregarEventosHover(layer, estiloBarrios);
+        }
+    
+        // Función para manejar eventos en cada polígono de VEREDAS
+        function eventosVeredas(feature, layer) {
+            var props = feature.properties || {}; 
+    
+            var popupContent = `
+                <b>Nombre:</b> ${props.nombre || "Sin nombre"}<br>
+                <b>Población:</b> ${props.poblacion || "Desconocida"}<br>
+                <b>Área:</b> ${props.area_ha || "N/A"} ha<br>
+                <b>Proyectos:</b> ${props.proyectos || "N/A"}<br>
+                <b>Personas Impactadas:</b> ${props.personasImpactadas || "N/A"}<br>
+                <a href="${props.enlace || '#'}" target="_blank" style="color: blue; text-decoration: underline;">Conoce más</a>
+            `;
+    
+            layer.bindPopup(popupContent);
+            agregarEventosHover(layer, estiloVeredas);
+        }
+    
+        // Función para agregar efectos de hover (resaltar al pasar el mouse)
+        function agregarEventosHover(layer, estiloOriginal) {
+            var estiloGuardado = JSON.parse(JSON.stringify(estiloOriginal()));
+    
+            layer.on("mouseover", function () {
+                this.setStyle({ weight: 4, color: "yellow", fillOpacity: 0.6 });
+                this.bringToFront();
+            });
+    
+            layer.on("mouseout", function () {
+                this.setStyle(estiloGuardado);
+            });
+        }
+    
+        // Función para cargar GeoJSON de barrios o veredas
+        function cargarGeoJSON(url, estilo, capa, eventosCallback) {
+            fetch(url)
+                .then(response => {
+                    if (!response.ok) throw new Error(`No se pudo cargar ${url}`);
+                    return response.json();
+                })
+                .then(data => {
+                    L.geoJSON(data, {
+                        style: estilo,
+                        onEachFeature: eventosCallback
+                    }).addTo(capa);
+    
+                    // Ajustar la vista para mostrar todos los datos correctamente
+                    map.fitBounds(barriosLayer.getBounds().extend(veredasLayer.getBounds()));
+                })
+                .catch(error => console.error(`Error cargando ${url}:`, error));
+        }
+    
+        // Cargar barrios y veredas en capas separadas
+        cargarGeoJSON("barrios.geojson", estiloBarrios, barriosLayer, eventosBarrios);
+        cargarGeoJSON("veredas.geojson", estiloVeredas, veredasLayer, eventosVeredas);
+    
+        // Agregar control de capas para mostrar/ocultar barrios y veredas
+        var capasSuperpuestas = {
+            "Barrios": barriosLayer,
+            "Veredas": veredasLayer
+        };
+        L.control.layers(null, capasSuperpuestas, { collapsed: false }).addTo(map);
+    </script>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            let repoName = "/TimeLineProyectos"; // Nombre del repositorio en GitHub Pages
+            let path = window.location.pathname;
+    
+            // Ajusta el path para eliminar el nombre del repo y obtener la ruta real del archivo
+            let relativePath = path.startsWith(repoName) ? path.replace(repoName, "") : path;
+    
+            // Páginas que están en la raíz del proyecto
+            let rootPages = ["/", "/index.html", "/embudo.html", "/formulacion.html", "/formulados.html", "/mapa.html", "/pilares.html", "/planDesarrollo.html", "/ProyectosPensados.html", "/radicados.html", "/timeLine.html"];
+            let isRoot = rootPages.includes(relativePath);
+    
+            // Calcula la profundidad del archivo dentro de la estructura de carpetas
+            let depth = isRoot ? 0 : relativePath.split("/").length - 2;
+            let prefix = depth > 0 ? "../".repeat(depth) : "";
+    
+            // Ruta corregida del header
+            let headerPath = "https://camilomadrigal12.github.io/TimeLineProyectos/header.html";
+    
+            console.log("Ruta generada para el header:", headerPath); // Verifica en la consola
+    
+            fetch(headerPath)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error("No se pudo cargar el header. Verifica la ruta.");
+                    }
+                    return response.text();
+                })
+                .then(data => {
+                    document.getElementById("header").innerHTML = data;
+    
+                    setTimeout(() => {
+                        let logo = document.querySelector("#header #logo");
+                        if (logo) {
+                            logo.src = prefix + logo.getAttribute("data-src");
+                            console.log("Logo cargado con src:", logo.src);
+                        }
+                        let links = document.querySelectorAll("#header a[data-href]");
+                        links.forEach(link => {
+                            let newHref = isRoot ? link.getAttribute("data-href") : prefix + link.getAttribute("data-href");
+                            link.setAttribute("href", newHref);
+                            console.log(`Modificado link: ${link.innerText} -> ${newHref}`);
+                        });
+                    });
+                })
+                .catch(error => console.error("Error cargando el header:", error));
+        });
+    </script>
+</body>
+</html>
